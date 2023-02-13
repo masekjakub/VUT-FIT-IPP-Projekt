@@ -4,3 +4,4 @@ tests/
 options
 *.txt
 test.php
+*.sh

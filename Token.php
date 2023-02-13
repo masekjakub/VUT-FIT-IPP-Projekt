@@ -1,16 +1,28 @@
 <?php
+/**
+ * @file Token.php
+ * @brief token class
+ * @author Jakub Mašek
+ * @date 2023-2-13
+ */
 class Token{
-    public $type;
-    public $value;
-    public $constType;
+    private $type;
+    private $value;
+    private $constType;
 
-    function setValue($inString){
-        $this->value = $inString;
+    function __construct($type, $value, $constType){
+        $this->type = $type;
+        $this->value = $value;
+        $this->constType = $constType;
     }
-    function setType($inType){
-        $this->type = $inType;
+
+    function getType(){
+        return $this->type;
     }
-    function setConstType($inType){
-        $this->constType = $inType;
+    function getValue(){
+        return $this->value;
+    }
+    function getConstType(){
+        return $this->constType;
     }
 }
