@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file Lexer.php
  * @brief IPPcode23 lexer
