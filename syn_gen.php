@@ -8,6 +8,7 @@
  */
 
 require_once("Errors.php");
+require_once("Lexer.php");
 
 class Syntax
 {
@@ -39,7 +40,8 @@ class Syntax
     }
 
     /**
-     * @brief syntax check and XML generation of one instruction 
+     * @brief syntax check and XML generation of one instruction
+     * @param $simpleXML SimpleXMLElement
      */
     function analyse($simpleXML)
     {
@@ -186,7 +188,7 @@ class Syntax
                 break;
 
             default:
-                fwrite(STDERR, "Error: Unexpected token ".$token->getValue());
+                fwrite(STDERR, "Error: Unexpected token " . $token->getValue());
                 exit(myError::E_WRONGOPCODE->value);
         }
     }

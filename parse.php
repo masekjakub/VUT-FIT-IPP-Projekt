@@ -7,12 +7,10 @@
  */
 
 require_once("Errors.php");
-require_once("Token.php");
-require_once("Lexer.php");
 require_once("Syntax.php");
 ini_set('display_errors', 'stderr');
 
-// get arguments
+// arguments
 $shortopts  = "h";
 $longopts  = array(
     "help",
@@ -36,7 +34,7 @@ $syntax->checkHeader();
 while(!feof($file)){
     $syntax->analyse($simpleXML);
 }
-// feof ignores last line if it doesn't end with EOL
+// read line with EOF
 $syntax->analyse($simpleXML);
 
 print_r($simpleXML->asXML());
