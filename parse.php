@@ -21,7 +21,11 @@ if($argc != count($args)+1){
     exit(myError::E_WRONGPARAM->value);
 }
 if(isset($args["help"]) || isset($args["h"])){
-    echo "helpasdasdasdas\n";
+    echo "Usage:\n";
+    echo "php parse.php [-h]\n\n";
+    echo "Description:\n";
+    echo "Script reads IPPcode23 code from STDIN, checks syntax and generates XML representation to STDOUT.\n";
+    echo "\nJakub Mašek, 2023, VUT FIT\n";
     exit(myError::E_OK->value);
 }
 
