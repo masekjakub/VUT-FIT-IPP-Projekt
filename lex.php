@@ -6,8 +6,8 @@
  * @date 2023-2-13
  */
 
-require_once("Token.php");
-require_once("Errors.php");
+require_once("token.php");
+require_once("error.php");
 class Lexer
 {
 

@@ -7,8 +7,8 @@
  * @date 2023-2-13
  */
 
-require_once("Errors.php");
-require_once("Lexer.php");
+require_once("error.php");
+require_once("lex.php");
 
 class Syntax
 {

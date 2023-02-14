@@ -6,8 +6,8 @@
  * @date 2023-2-13
  */
 
-require_once("Errors.php");
-require_once("Syntax.php");
+require_once("error.php");
+require_once("syn_gen.php");
 ini_set('display_errors', 'stderr');
 
 // arguments
