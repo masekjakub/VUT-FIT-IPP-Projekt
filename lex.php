@@ -45,7 +45,7 @@ class Lexer
         $constType = null;
 
         if ($type == tokenType::T_CONST) {
-            $constExploded = explode("@", $word);
+            $constExploded = explode("@", $word, 2);
             $constType = $constExploded[0];
             $value = $constExploded[1];
         } else {
@@ -78,11 +78,11 @@ class Lexer
     private function getType($word)
     {
         if (preg_match("/^$/", $word)) return tokenType::T_EOL;
-        if (preg_match("/^(TF|LF|GF)@[ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z_\-$&%\*!?][ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9_\-$&%\*!?]*$/", $word)) return tokenType::T_VAR;
+        if (preg_match("/^(TF|LF|GF)@[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/", $word)) return tokenType::T_VAR;
         if (preg_match("/^int@[-+]?[0-9]+$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^nil@nil$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^bool@(true|false)$/", $word)) return tokenType::T_CONST;
-        if (preg_match("/^string@([^\\\]+|\\\\\d{3})*$/", $word)) return tokenType::T_CONST;
+        if (preg_match("/^string@([^\\\]|\\\\\d{3})*$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^(int|string|bool)$/", $word) && !preg_match("/^LABEL$/i", $this->words[0])) return tokenType::T_VARTYPE;
         if (preg_match("/^MOVE$/i", $word) && $this->index == 0) return tokenType::T_MOVE;
         if (preg_match("/^CREATEFRAME$/i", $word) && $this->index == 0) return tokenType::T_CREATEFRAME;
@@ -119,7 +119,7 @@ class Lexer
         if (preg_match("/^EXIT$/i", $word) && $this->index == 0) return tokenType::T_EXIT;
         if (preg_match("/^DPRINT$/i", $word) && $this->index == 0) return tokenType::T_DPRINT;
         if (preg_match("/^BREAK$/i", $word) && $this->index == 0) return tokenType::T_BREAK;
-        if (preg_match("/^[a-zěščřžýáíéóúůďťň_\-$&%\*!?][0-9a-zěščřžýáíéóúůďťň_\-$&%\*!?]*$/i", $word)) return tokenType::T_LABELNAME;
+        if (preg_match("/^[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/i", $word)) return tokenType::T_LABELNAME;
         if (preg_match("/^.IPPcode23$/i", $word)) return tokenType::T_HEADER;
 
         if (preg_match("/^\./i", $word)) {
