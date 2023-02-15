@@ -52,6 +52,9 @@ enum tokenType
     case T_EXIT;
     case T_DPRINT;
     case T_BREAK;
+
+    case T_UNKNOWNOPCODE;
+    case T_UNEXPECTEDTOKEN;
 }
 
 class Token

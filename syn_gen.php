@@ -16,25 +16,24 @@ class Syntax
     private $argIndex = 1;
     private $lexer;
 
-    function __construct($file)
+    function __construct()
     {
         $this->insIndex = 1;
         $this->argIndex = 1;
-        $this->lexer = new Lexer($file);
     }
 
     /**
      * @brief checks header
      */
-    function checkHeader()
+    function checkHeader($lexer)
     {
-        $token = $this->lexer->newToken();
+        $token = $lexer->newToken();
         while ($token->getType() == tokenType::T_EOL) {
-            $token = $this->lexer->newToken();
+            $token = $lexer->newToken();
         }
 
         if ($token->getType() != tokenType::T_HEADER) {
-            fwrite(STDERR, "Error: Expected head");
+            fwrite(STDERR, "Error: Expected head\n");
             exit(myError::E_NOHEAD->value);
         }
     }
@@ -43,9 +42,9 @@ class Syntax
      * @brief syntax check and XML generation of one instruction
      * @param $simpleXML SimpleXMLElement
      */
-    function analyse($simpleXML)
+    function analyse($simpleXML, $lexer)
     {
-        $token = $this->lexer->newToken();
+        $token = $lexer->newToken();
 
         switch ($token->getType()) {
             case tokenType::T_EOL:
@@ -59,15 +58,15 @@ class Syntax
             case tokenType::T_NOT:
 
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_VAR);
                 $this->generateArg($instruction, $token, "var");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -78,7 +77,7 @@ class Syntax
             case tokenType::T_RETURN:
             case tokenTYpe::T_BREAK:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -86,11 +85,11 @@ class Syntax
             case tokenType::T_DEFVAR:
             case tokenType::T_POPS:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_VAR);
                 $this->generateArg($instruction, $token, "var");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -100,11 +99,11 @@ class Syntax
             case tokenType::T_EXIT:
             case tokenType::T_DPRINT:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -123,34 +122,34 @@ class Syntax
             case tokenType::T_GETCHAR:
             case tokenType::T_SETCHAR:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_VAR);
                 $this->generateArg($instruction, $token, "var");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
                 //opcode var type
             case tokenType::T_READ:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_VAR);
                 $this->generateArg($instruction, $token, "var");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_VARTYPE);
                 $this->generateArg($instruction, $token, "type");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -159,11 +158,11 @@ class Syntax
             case tokenType::T_JUMP:
             case tokenType::T_CALL:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_LABELNAME);
                 $this->generateArg($instruction, $token, "label");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
@@ -171,19 +170,19 @@ class Syntax
             case tokenType::T_JUMPIFEQ:
             case tokenType::T_JUMPIFNEQ:
                 $instruction = $this->generateInstruction($simpleXML, $token);
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_LABELNAME);
                 $this->generateArg($instruction, $token, "label");
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
-                $token = $this->lexer->newToken();
+                $token = $lexer->newToken();
                 $this->checkType($token, tokenType::T_EOL);
                 break;
 
