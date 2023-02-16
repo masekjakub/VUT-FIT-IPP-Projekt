@@ -4,7 +4,7 @@
  * @file Lexer.php
  * @brief IPPcode23 lexer
  * @author Jakub Mašek
- * @date 2023-2-13
+ * @date 2023-2-16
  */
 
 require_once("token.php");

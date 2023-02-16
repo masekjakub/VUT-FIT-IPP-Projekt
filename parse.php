@@ -4,7 +4,7 @@
  * @file parse.php
  * @brief IPPcode23 parser
  * @author Jakub Mašek
- * @date 2023-2-13
+ * @date 2023-2-16
  */
 
 require_once("error.php");
@@ -51,6 +51,11 @@ if (isset($opts["help"]) || isset($opts["h"])) {
     echo "Every statistic is printed to file set before. Multiple files are possible.\n";
     echo "\nJakub Mašek, 2023, VUT FIT\n";
     exit(myError::E_OK->value);
+}
+
+if(is_array($opts["stats"]) && count($opts["stats"]) !== count(array_unique($opts["stats"]))){
+    fwrite(STDERR, "Duplicated --stats options! Try --help\n");
+    exit(myError::E_WRONGOUTFILE->value);
 }
 
 // setup
