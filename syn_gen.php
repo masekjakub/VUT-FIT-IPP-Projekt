@@ -16,7 +16,7 @@ class Syntax
     private $argIndex = 1;
     private $lexer;
 
-    function __construct()
+    public function __construct()
     {
         $this->insIndex = 1;
         $this->argIndex = 1;
@@ -25,7 +25,7 @@ class Syntax
     /**
      * @brief checks header
      */
-    function checkHeader($lexer)
+    public function checkHeader($lexer)
     {
         $token = $lexer->newToken();
         while ($token->getType() == tokenType::T_EOL) {
@@ -42,7 +42,7 @@ class Syntax
      * @brief syntax check and XML generation of one instruction
      * @param $simpleXML SimpleXMLElement
      */
-    function analyse($simpleXML, $lexer)
+    public function analyse($simpleXML, $lexer)
     {
         $token = $lexer->newToken();
 
@@ -63,7 +63,7 @@ class Syntax
                 $this->generateArg($instruction, $token, "var");
 
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
@@ -100,7 +100,7 @@ class Syntax
             case tokenType::T_DPRINT:
                 $instruction = $this->generateInstruction($simpleXML, $token);
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
@@ -127,11 +127,11 @@ class Syntax
                 $this->generateArg($instruction, $token, "var");
 
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
@@ -175,11 +175,11 @@ class Syntax
                 $this->generateArg($instruction, $token, "label");
 
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
-                $this->check2Types($token, tokenType::T_VAR, tokenType::T_CONST);
+                $this->checkType($token, tokenType::T_VAR, tokenType::T_CONST);
                 $this->generateArgSymb($instruction, $token);
 
                 $token = $lexer->newToken();
@@ -237,28 +237,20 @@ class Syntax
     }
 
     /**
-     * @brief checks if token is of given type
-     * @param $token Token to check
-     * @param $type Type to check
-     */
-    private function checkType($token, $type)
-    {
-        if ($token->getType() != $type) {
-            fwrite(STDERR, "Error: Expected $type->name, got " . $token->getType()->name);
-            exit(myError::E_OTHER->value);
-        }
-    }
-
-    /**
      * @brief checks if token is one of given types
      * @param $token Token to check
-     * @param $type1 First type to check
-     * @param $type2 Second type to check
+     * @param Types to check
      */
-    private function check2Types($token, $type1, $type2)
+    private function checkType($token)
     {
-        if ($token->getType() != $type1 && $token->getType() != $type2) {
-            fwrite(STDERR, "Error: Expected $type1->name or $type2->name, got " . $token->getType()->name);
+        $isSame = 0;
+        for ($i = 1; $i < func_num_args(); $i++){
+            if ($token->getType() == func_get_arg($i)){
+                $isSame = 1;
+            }
+        }
+        if ($isSame == 0) {
+            fwrite(STDERR, "Error: Unexpected type" . $token->getType()->name);
             exit(myError::E_OTHER->value);
         }
     }

@@ -62,9 +62,35 @@ class Lexer
         } else {
             $value = $word;
         }
+        
         $token = new Token($type, $value, $constType);
         $this->index++;
         return $token;
+    }
+
+    /**
+     * @brief Returns array of stats
+     * @return array of stats
+     */
+    public function getStatsArr()
+    {
+        foreach ($this->jumpsNoLabel as $jump) {
+            if (in_array($jump, $this->seenLabels, false)) {
+                $this->fwJumps++;
+            }else{
+                $this->badJumps++;
+            }
+        }
+        $statsArr = array(
+            "loc" => $this->loc,
+            "comments" => $this->comments,
+            "labels" => $this->labels,
+            "jumps" => $this->jumps,
+            "fwJumps" => $this->fwJumps,
+            "backJumps" => $this->backJumps,
+            "badJumps" => $this->badJumps,
+        );
+        return $statsArr;
     }
 
     /**
@@ -172,30 +198,5 @@ class Lexer
         if (isset($this->words[1])) {
             array_push($this->seenLabels,$this->words[1]);
         }
-    }
-
-    /**
-     * @brief Returns array of stats
-     * @return array of stats
-     */
-    public function getStatsArr()
-    {
-        foreach ($this->jumpsNoLabel as $jump) {
-            if (in_array($jump, $this->seenLabels, false)) {
-                $this->fwJumps++;
-            }else{
-                $this->badJumps++;
-            }
-        }
-        $statsArr = array(
-            "loc" => $this->loc,
-            "comments" => $this->comments,
-            "labels" => $this->labels,
-            "jumps" => $this->jumps,
-            "fwJumps" => $this->fwJumps,
-            "backJumps" => $this->backJumps,
-            "badJumps" => $this->badJumps,
-        );
-        return $statsArr;
     }
 }

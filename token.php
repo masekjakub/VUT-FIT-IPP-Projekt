@@ -63,22 +63,24 @@ class Token
     private $value;
     private $constType;
 
-    function __construct($type, $value, $constType)
+    public function __construct($type, $value, $constType)
     {
         $this->type = $type;
         $this->value = $value;
         $this->constType = $constType;
     }
 
-    function getType()
+    public function getType()
     {
         return $this->type;
     }
-    function getValue()
+
+    public function getValue()
     {
         return $this->value;
     }
-    function getConstType()
+    
+    public function getConstType()
     {
         return $this->constType;
     }
