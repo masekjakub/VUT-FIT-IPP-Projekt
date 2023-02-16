@@ -75,6 +75,7 @@ class Lexer
         $row = fgets($this->file);
         $row = preg_replace("/#.*$/", "", $row, -1, $replaceCount);
         $this->comments += $replaceCount;
+        $row = trim($row);
         $row = preg_replace("/\s+/", " ", $row);
         $this->words = explode(" ", $row);
         $this->count = count($this->words);
