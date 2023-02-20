@@ -187,7 +187,7 @@ class Syntax
                 break;
 
             default:
-                fwrite(STDERR, "Error: Unexpected token " . $token->getValue());
+                fwrite(STDERR, "Error: Unexpected token: " . $token->getValue());
                 exit(myError::E_WRONGOPCODE->value);
         }
     }

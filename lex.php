@@ -19,6 +19,8 @@ class Lexer
 
     private $seenLabels = array();
     private $jumpsNoLabel = array();
+    private $opcodeCountArr = array();
+    private $isOpcode = 0;
     private $loc = 0;
     private $comments = 0;
     private $labels = 0;
@@ -62,7 +64,16 @@ class Lexer
         } else {
             $value = $word;
         }
-        
+
+        //opcode counter
+        if ($this->isOpcode){
+            $opcode = preg_replace("/T_/","",$type->name);
+            if (!isset($this->opcodeCountArr[$opcode])){
+                $this->opcodeCountArr[$opcode] = 0;
+            }
+            $this->opcodeCountArr[$opcode]++;
+        }
+
         $token = new Token($type, $value, $constType);
         $this->index++;
         return $token;
@@ -77,10 +88,11 @@ class Lexer
         foreach ($this->jumpsNoLabel as $jump) {
             if (in_array($jump, $this->seenLabels, false)) {
                 $this->fwJumps++;
-            }else{
+            } else {
                 $this->badJumps++;
             }
         }
+        arsort($this->opcodeCountArr);
         $statsArr = array(
             "loc" => $this->loc,
             "comments" => $this->comments,
@@ -89,6 +101,7 @@ class Lexer
             "fwJumps" => $this->fwJumps,
             "backJumps" => $this->backJumps,
             "badJumps" => $this->badJumps,
+            "frequent" => $this->opcodeCountArr,
         );
         return $statsArr;
     }
@@ -116,6 +129,7 @@ class Lexer
      */
     private function getType($word)
     {
+        $this->isOpcode = 0;
         if (preg_match("/^$/", $word)) return tokenType::T_EOL;
         if (preg_match("/^.IPPcode23$/i", $word)) return tokenType::T_HEADER;
         if (preg_match("/^(TF|LF|GF)@[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/", $word)) return tokenType::T_VAR;
@@ -124,15 +138,24 @@ class Lexer
         if (preg_match("/^bool@(true|false)$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^string@([^\\\]|\\\\\d{3})*$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^(int|string|bool)$/", $word) && !preg_match("/^LABEL$/i", $this->words[0])) return tokenType::T_VARTYPE;
-        if (preg_match("/^[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/i", $word) && $this->index == 1) {return tokenType::T_LABELNAME;}
+        if (preg_match("/^[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/i", $word) && $this->index == 1) {
+            return tokenType::T_LABELNAME;
+        }
+        $this->isOpcode = 1;
         $this->loc++;
-        if (preg_match("/^MOVE$/i", $word) && $this->index == 0) return tokenType::T_MOVE;
+        if (preg_match("/^MOVE$/i", $word) && $this->index == 0)return tokenType::T_MOVE;
         if (preg_match("/^CREATEFRAME$/i", $word) && $this->index == 0) return tokenType::T_CREATEFRAME;
         if (preg_match("/^PUSHFRAME$/i", $word) && $this->index == 0) return tokenType::T_PUSHFRAME;
         if (preg_match("/^POPFRAME$/i", $word) && $this->index == 0) return tokenType::T_POPFRAME;
         if (preg_match("/^DEFVAR$/i", $word) && $this->index == 0) return tokenType::T_DEFVAR;
-        if (preg_match("/^CALL$/i", $word) && $this->index == 0) {$this->countJumps();return tokenType::T_CALL;}
-        if (preg_match("/^RETURN$/i", $word) && $this->index == 0) {$this->countJumps();return tokenType::T_RETURN;}
+        if (preg_match("/^CALL$/i", $word) && $this->index == 0) {
+            $this->countJumps();
+            return tokenType::T_CALL;
+        }
+        if (preg_match("/^RETURN$/i", $word) && $this->index == 0) {
+            $this->countJumps();
+            return tokenType::T_RETURN;
+        }
         if (preg_match("/^PUSHS$/i", $word) && $this->index == 0) return tokenType::T_PUSHS;
         if (preg_match("/^POPS$/i", $word) && $this->index == 0) return tokenType::T_POPS;
         if (preg_match("/^ADD$/i", $word) && $this->index == 0) return tokenType::T_ADD;
@@ -154,10 +177,22 @@ class Lexer
         if (preg_match("/^GETCHAR$/i", $word) && $this->index == 0) return tokenType::T_GETCHAR;
         if (preg_match("/^SETCHAR$/i", $word) && $this->index == 0) return tokenType::T_SETCHAR;
         if (preg_match("/^TYPE$/i", $word) && $this->index == 0) return tokenType::T_TYPE;
-        if (preg_match("/^LABEL$/i", $word) && $this->index == 0){$this->countLabels();return tokenType::T_LABEL;}
-        if (preg_match("/^JUMP$/i", $word) && $this->index == 0) {$this->countJumps();return tokenType::T_JUMP;}
-        if (preg_match("/^JUMPIFEQ$/i", $word) && $this->index == 0) {$this->countJumps();return tokenType::T_JUMPIFEQ;}
-        if (preg_match("/^JUMPIFNEQ$/i", $word) && $this->index == 0) {$this->countJumps();return tokenType::T_JUMPIFNEQ;}
+        if (preg_match("/^LABEL$/i", $word) && $this->index == 0) {
+            $this->countLabels();
+            return tokenType::T_LABEL;
+        }
+        if (preg_match("/^JUMP$/i", $word) && $this->index == 0) {
+            $this->countJumps();
+            return tokenType::T_JUMP;
+        }
+        if (preg_match("/^JUMPIFEQ$/i", $word) && $this->index == 0) {
+            $this->countJumps();
+            return tokenType::T_JUMPIFEQ;
+        }
+        if (preg_match("/^JUMPIFNEQ$/i", $word) && $this->index == 0) {
+            $this->countJumps();
+            return tokenType::T_JUMPIFNEQ;
+        }
         if (preg_match("/^EXIT$/i", $word) && $this->index == 0) return tokenType::T_EXIT;
         if (preg_match("/^DPRINT$/i", $word) && $this->index == 0) return tokenType::T_DPRINT;
         if (preg_match("/^BREAK$/i", $word) && $this->index == 0) return tokenType::T_BREAK;
@@ -196,7 +231,7 @@ class Lexer
     {
         $this->labels++;
         if (isset($this->words[1])) {
-            array_push($this->seenLabels,$this->words[1]);
+            array_push($this->seenLabels, $this->words[1]);
         }
     }
 }

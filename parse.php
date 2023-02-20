@@ -111,6 +111,15 @@ for ($i = 1; $i < $argc; $i++) {
     if ($argv[$i] == "--badjumps") {
         fwrite($statsFile, $statsArr["badJumps"] . "\n");
     }
+    if ($argv[$i] == "--frequent") {
+        $opcodeStatArr = $statsArr["frequent"];
+        foreach ($opcodeStatArr as $opcodeName => $count){
+            fwrite($statsFile, $opcodeName);
+            if ($opcodeName !== array_key_last($opcodeStatArr)) {
+                fwrite($statsFile, ",");
+            }
+        }
+    }
     if ($argv[$i] == "--eol") {
         fwrite($statsFile, "\n");
     }
