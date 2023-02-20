@@ -29,7 +29,7 @@ $longopts  = array(
 $opts = getopt($shortopts, $longopts, $index);
 
 if (isset($opts["help"]) || isset($opts["h"])) {
-    if(count($opts) != 1){
+    if (count($opts) != 1) {
         fwrite(STDERR, "Help option cannot be combinated with another one! Try --help\n");
         exit(myError::E_WRONGPARAM->value);
     }
@@ -45,6 +45,7 @@ if (isset($opts["help"]) || isset($opts["h"])) {
     echo "--fwjumps\t\tPrints number of forward jumps.\n";
     echo "--backjumps\t\tPrints number of backward jumps.\n";
     echo "--badjumps\t\tPrints number of bad jumps.\n";
+    echo "--frequent\t\tPrints instructions ordered by number of occurrences.\n";
     echo "--print=\"string\"\tPrints string representation to file.\n";
     echo "\nDescription:\n";
     echo "Script reads IPPcode23 code from STDIN, checks syntax and generates XML representation to STDOUT.\n";
@@ -53,9 +54,11 @@ if (isset($opts["help"]) || isset($opts["h"])) {
     exit(myError::E_OK->value);
 }
 
-if(is_array($opts["stats"]) && count($opts["stats"]) !== count(array_unique($opts["stats"]))){
-    fwrite(STDERR, "Duplicated --stats options! Try --help\n");
-    exit(myError::E_WRONGOUTFILE->value);
+if (isset($opts["stats"])) {
+    if (is_array($opts["stats"]) && count($opts["stats"]) !== count(array_unique($opts["stats"]))) {
+        fwrite(STDERR, "Duplicated --stats options! Try --help\n");
+        exit(myError::E_WRONGOUTFILE->value);
+    }
 }
 
 // setup
@@ -113,7 +116,7 @@ for ($i = 1; $i < $argc; $i++) {
     }
     if ($argv[$i] == "--frequent") {
         $opcodeStatArr = $statsArr["frequent"];
-        foreach ($opcodeStatArr as $opcodeName => $count){
+        foreach ($opcodeStatArr as $opcodeName => $count) {
             fwrite($statsFile, $opcodeName);
             if ($opcodeName !== array_key_last($opcodeStatArr)) {
                 fwrite($statsFile, ",");
