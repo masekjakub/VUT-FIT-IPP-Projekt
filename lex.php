@@ -41,8 +41,9 @@ class Lexer
      */
     public function newToken()
     {
-        // end of line
+        // Returns EOL token if end of line is reached
         if ($this->index == $this->count) {
+            // Row wasn't empty
             if ($this->index != 0) {
                 $token = new Token(tokenType::T_EOL, null, null);
                 $this->newRow();
@@ -65,10 +66,10 @@ class Lexer
             $value = $word;
         }
 
-        //opcode counter
-        if ($this->isOpcode){
-            $opcode = preg_replace("/T_/","",$type->name);
-            if (!isset($this->opcodeCountArr[$opcode])){
+        // Opcode counter
+        if ($this->isOpcode) {
+            $opcode = preg_replace("/T_/", "", $type->name);
+            if (!isset($this->opcodeCountArr[$opcode])) {
                 $this->opcodeCountArr[$opcode] = 0;
             }
             $this->opcodeCountArr[$opcode]++;
@@ -138,12 +139,10 @@ class Lexer
         if (preg_match("/^bool@(true|false)$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^string@([^\\\]|\\\\\d{3})*$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^(int|string|bool)$/", $word) && !preg_match("/^LABEL$/i", $this->words[0])) return tokenType::T_VARTYPE;
-        if (preg_match("/^[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/i", $word) && $this->index == 1) {
-            return tokenType::T_LABELNAME;
-        }
+        if (preg_match("/^[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/i", $word) && $this->index == 1) return tokenType::T_LABELNAME;
         $this->isOpcode = 1;
         $this->loc++;
-        if (preg_match("/^MOVE$/i", $word) && $this->index == 0)return tokenType::T_MOVE;
+        if (preg_match("/^MOVE$/i", $word) && $this->index == 0) return tokenType::T_MOVE;
         if (preg_match("/^CREATEFRAME$/i", $word) && $this->index == 0) return tokenType::T_CREATEFRAME;
         if (preg_match("/^PUSHFRAME$/i", $word) && $this->index == 0) return tokenType::T_PUSHFRAME;
         if (preg_match("/^POPFRAME$/i", $word) && $this->index == 0) return tokenType::T_POPFRAME;
@@ -215,7 +214,9 @@ class Lexer
     private function countJumps()
     {
         $this->jumps++;
+        // If label name exists
         if (isset($this->words[1])) {
+            // If label is already seen
             if (in_array($this->words[1], $this->seenLabels)) {
                 $this->backJumps++;
             } else {
@@ -230,7 +231,12 @@ class Lexer
     private function countLabels()
     {
         $this->labels++;
+        // If label name exists
         if (isset($this->words[1])) {
+            if (in_array($this->words[1], $this->seenLabels)) {
+                fwrite(STDERR, "ERROR: Label already exists: " . $this->words[1] . "\n");
+                exit(myError::E_OTHER->value);
+            }
             array_push($this->seenLabels, $this->words[1]);
         }
     }

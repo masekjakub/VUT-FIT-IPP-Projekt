@@ -14,7 +14,6 @@ class Syntax
 {
     private $insIndex = 1;
     private $argIndex = 1;
-    private $lexer;
 
     public function __construct()
     {
@@ -250,7 +249,7 @@ class Syntax
             }
         }
         if ($isSame == 0) {
-            fwrite(STDERR, "Error: Unexpected type" . $token->getType()->name);
+            fwrite(STDERR, "Error: Unexpected type " . $token->getType()->name);
             exit(myError::E_OTHER->value);
         }
     }

@@ -12,7 +12,7 @@ require_once("syn_gen.php");
 ini_set('display_errors', 'stderr');
 
 // arguments
-$shortopts  = "hs:lcjp:";
+$shortopts  = "h";
 $longopts  = array(
     "help",
     "stats:",
@@ -30,7 +30,7 @@ $opts = getopt($shortopts, $longopts, $index);
 
 if (isset($opts["help"]) || isset($opts["h"])) {
     if (count($opts) != 1) {
-        fwrite(STDERR, "Help option cannot be combinated with another one! Try --help\n");
+        fwrite(STDERR, "Help option cannot be combinated with another one! Try only --help\n");
         exit(myError::E_WRONGPARAM->value);
     }
     echo "Usage:\n";
@@ -62,7 +62,7 @@ if (isset($opts["stats"])) {
 }
 
 // setup
-$file = fopen('php://stdin', 'r');
+$file = fopen('php://stdin', 'r') or die("Unable to open file!");
 $simpleXML = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><program language="IPPcode23"></program>');
 $syntax = new Syntax();
 $lexer = new Lexer($file);
@@ -81,6 +81,9 @@ $statsArr = $lexer->getStatsArr();
 $statsFileSet = 0;
 for ($i = 1; $i < $argc; $i++) {
     if (preg_match("/^--stats=/", $argv[$i])) {
+        if ($statsFileSet == 1) {
+            fclose($statsFile);
+        }
         $fileName = preg_replace("/^--stats=/", "", $argv[$i]);
         $statsFile = fopen("$fileName", "w") or die("Unable to open file!");
         $statsFileSet = 1;
@@ -128,4 +131,13 @@ for ($i = 1; $i < $argc; $i++) {
     }
 }
 
+if ($statsFileSet == 1) {
+    fclose($statsFile);
+}
+fclose($file);
+
+if($statsArr["badJumps"] != 0) {
+    fwrite(STDERR, "Jump to undefined label found!\n");
+    exit(myError::E_OTHER->value);
+}
 exit(myError::E_OK->value);
