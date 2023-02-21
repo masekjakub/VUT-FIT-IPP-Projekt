@@ -125,6 +125,7 @@ for ($i = 1; $i < $argc; $i++) {
                 fwrite($statsFile, ",");
             }
         }
+        fwrite($statsFile, "\n");
     }
     if ($argv[$i] == "--eol") {
         fwrite($statsFile, "\n");
