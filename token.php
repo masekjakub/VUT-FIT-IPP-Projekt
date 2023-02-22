@@ -13,6 +13,7 @@ enum tokenType
     case T_VAR;
     case T_CONST;
     case T_EOL;
+    case T_EOF;
     case T_UNDEF;
     case T_VARTYPE;
     case T_LABELNAME;

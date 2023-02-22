@@ -16,6 +16,7 @@ class Lexer
     private $count = 0;
     private $words;
     private $file;
+    private $needNewLine = 0;
 
     private $seenLabels = array();
     private $jumpsNoLabel = array();
@@ -31,8 +32,15 @@ class Lexer
 
     public function __construct($file)
     {
-        $this->file = $file;
-        $this->newRow($file);
+        $this->file = fopen($file, 'r') or die("Unable to open file!");;
+        if ($this->newRow() == null) {
+            return new Token(tokenType::T_EOF, null, null);
+        }
+    }
+
+    public function __destruct()
+    {
+        fclose($this->file);
     }
 
     /**
@@ -43,13 +51,18 @@ class Lexer
     {
         // Returns EOL token if end of line is reached
         if ($this->index == $this->count) {
-            // Row wasn't empty
-            if ($this->index != 0) {
-                $token = new Token(tokenType::T_EOL, null, null);
-                $this->newRow();
+            $token = new Token(tokenType::T_EOL, null, null);
+            $this->index = 0;
+            $this->needNewLine = 1;
+            return $token;
+        }
+
+        if ($this->needNewLine == 1) {
+            $this->needNewLine = 0;
+            if ($this->newRow() == null) {
+                $token = new Token(tokenType::T_EOF, null, null);
                 return $token;
             }
-            $this->newRow();
         }
 
         $word = $this->words[$this->index];
@@ -77,6 +90,7 @@ class Lexer
 
         $token = new Token($type, $value, $constType);
         $this->index++;
+        //echo $token->getType()->name . "\n";
         return $token;
     }
 
@@ -112,15 +126,14 @@ class Lexer
      */
     private function newRow()
     {
-        $row = fgets($this->file);
-        $row = preg_replace("/#.*$/", "", $row, -1, $replaceCount);
+        $rawRow = fgets($this->file);
+        $row = preg_replace("/#.*$/", "", $rawRow, -1, $replaceCount);
         $this->comments += $replaceCount;
         $row = trim($row);
         $row = preg_replace("/\s+/", " ", $row);
         $this->words = explode(" ", $row);
         $this->count = count($this->words);
-        $this->index = 0;
-        return;
+        return $rawRow;
     }
 
     /**
