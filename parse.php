@@ -145,6 +145,6 @@ if ($statsFileSet == 1) {
 
 if($statsArr["badJumps"] != 0) {
     fwrite(STDERR, "Jump to undefined label found!\n");
-    exit(myError::E_OTHER->value);
+    exit(myError::E_SEMANTIC->value);
 }
 exit(myError::E_OK->value);
