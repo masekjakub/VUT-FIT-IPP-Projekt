@@ -126,9 +126,14 @@ for ($i = 1; $i < $argc; $i++) {
     
     if ($argv[$i] == "--frequent") {
         $opcodeStatArr = $statsArr["frequent"];
+        $maxcount = current($opcodeStatArr);
         foreach ($opcodeStatArr as $opcodeName => $count) {
+            if ($maxcount > $count) {
+                break;
+            }
             fwrite($statsFile, $opcodeName);
-            if ($opcodeName !== array_key_last($opcodeStatArr)) {
+            next($opcodeStatArr);
+            if ($count == current($opcodeStatArr)) {
                 fwrite($statsFile, ",");
             }
         }
@@ -145,6 +150,6 @@ if ($statsFileSet == 1) {
 
 if($statsArr["badJumps"] != 0) {
     fwrite(STDERR, "Jump to undefined label found!\n");
-    exit(myError::E_SEMANTIC->value);
+    //exit(myError::E_SEMANTIC->value);
 }
 exit(myError::E_OK->value);
