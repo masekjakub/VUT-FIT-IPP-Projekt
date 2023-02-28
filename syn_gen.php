@@ -32,7 +32,7 @@ class Syntax
         }
 
         if ($token->getType() != tokenType::T_HEADER) {
-            fwrite(STDERR, "Error: Expected head\n");
+            fwrite(STDERR, "Error: Missing head!\n");
             exit(myError::E_NOHEAD->value);
         }
     }

@@ -211,11 +211,6 @@ class Lexer
         if (preg_match("/^DPRINT$/i", $word) && $this->index == 0) return tokenType::T_DPRINT;
         if (preg_match("/^BREAK$/i", $word) && $this->index == 0) return tokenType::T_BREAK;
 
-        if (preg_match("/^\./i", $word)) {
-            fwrite(STDERR, "ERROR: Wrong head: $word\n");
-            exit(myError::E_NOHEAD->value);
-        }
-
         if ($this->index == 0) {
             return tokenType::T_UNKNOWNOPCODE;
         }
