@@ -1,8 +1,8 @@
 <?php
 
 /**
- * @file Token.php
- * @brief token class and tokenType enum
+ * @file token.php
+ * @brief Token class and tokenType enum
  * @author Jakub Mašek
  * @date 2023-2-13
  */
@@ -64,6 +64,9 @@ class Token
     private $value;
     private $constType;
 
+    /**
+     * @brief Token constructor
+     */
     public function __construct($type, $value, $constType)
     {
         $this->type = $type;
@@ -71,16 +74,30 @@ class Token
         $this->constType = $constType;
     }
 
+    /**
+     * @brief Returns token type
+     * @return tokenType
+     */
     public function getType()
     {
         return $this->type;
     }
 
+    /**
+     * @brief Returns token value
+     * @return string with token value
+     */
     public function getValue()
     {
         return $this->value;
     }
     
+    /**
+     * @brief Returns type of constant
+     * @return string with type of constant (int, bool, string, nil)
+     * 
+     * Use this function only if token type is T_CONST
+     */
     public function getConstType()
     {
         return $this->constType;

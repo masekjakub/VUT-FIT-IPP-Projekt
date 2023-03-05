@@ -1,6 +1,7 @@
 <?php
+
 /**
- * @file Errors.php
+ * @file error.php
  * @brief implements myError enum
  * @author Jakub Mašek
  * @date 2023-2-13

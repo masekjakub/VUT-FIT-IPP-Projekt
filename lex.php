@@ -1,10 +1,10 @@
 <?php
 
 /**
- * @file Lexer.php
+ * @file lex.php
  * @brief IPPcode23 lexer
  * @author Jakub Mašek
- * @date 2023-2-16
+ * @date 2023-2-20
  */
 
 require_once("token.php");
@@ -30,6 +30,10 @@ class Lexer
     private $backJumps = 0;
     private $badJumps = 0;
 
+    /**
+     * @brief Constructor, opens file
+     * @param $file file to open
+     */
     public function __construct($file)
     {
         $this->file = fopen($file, 'r') or die("Unable to open file!");;
@@ -38,14 +42,17 @@ class Lexer
         }
     }
 
+    /**
+     * @brief Destructor, closes file
+     */
     public function __destruct()
     {
         fclose($this->file);
     }
 
     /**
-     * @brief returns new token from file
-     * @return $token 
+     * @brief Returns new token from file
+     * @return $token new token
      */
     public function newToken()
     {
@@ -90,7 +97,6 @@ class Lexer
 
         $token = new Token($type, $value, $constType);
         $this->index++;
-        //echo $token->getType()->name . "\n";
         return $token;
     }
 
@@ -122,7 +128,7 @@ class Lexer
     }
 
     /**
-     * @brief reads new line from file
+     * @brief Reads new line from file and splits it into words
      */
     private function newRow()
     {
@@ -137,9 +143,9 @@ class Lexer
     }
 
     /**
-     * @brief returns type of token
-     * @param $word word to be checked
-     * @return tokenType type of token
+     * @brief Returns type of token
+     * @param $word Word to be checked
+     * @return tokenType Type of token
      */
     private function getType($word)
     {

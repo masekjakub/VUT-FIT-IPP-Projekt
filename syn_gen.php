@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @file Syntax.php
+ * @file syn_gen.php
  * @brief IPPcode23 syntax analyser and XML generator
  * @author Jakub Mašek
  * @date 2023-2-13
@@ -15,6 +15,9 @@ class Syntax
     private $insIndex = 1;
     private $argIndex = 1;
 
+    /**
+     * @brief Constructor, sets indexes to 1
+     */
     public function __construct()
     {
         $this->insIndex = 1;
@@ -22,7 +25,8 @@ class Syntax
     }
 
     /**
-     * @brief checks header
+     * @brief Checks header
+     * @param $lexer Lexer object
      */
     public function checkHeader($lexer)
     {
@@ -38,8 +42,9 @@ class Syntax
     }
 
     /**
-     * @brief syntax check and XML generation of one instruction
+     * @brief Syntax check and XML generation of one instruction
      * @param $simpleXML SimpleXMLElement
+     * @param $lexer Lexer object
      */
     public function analyse($simpleXML, $lexer)
     {
@@ -196,7 +201,7 @@ class Syntax
     }
 
     /**
-     * @brief generates XML code for instruction
+     * @brief Generates XML code for instruction
      * @param $simpleXML SimpleXMLElement
      * @param $token Token with opcode
      * @return SimpleXMLElement with instruction
@@ -212,7 +217,7 @@ class Syntax
     }
 
     /**
-     * @brief generates XML code for argument
+     * @brief Generates XML code for argument
      * @param $instruction SimpleXMLElement with instruction
      * @param $token Token with argument
      * @param $type Type of argument
@@ -225,7 +230,7 @@ class Syntax
     }
 
     /**
-     * @brief generates XML code for symbol argument
+     * @brief Generates XML code for symbol argument
      * @param $instruction SimpleXMLElement with instruction
      * @param $token Token with argument
      */
@@ -240,7 +245,7 @@ class Syntax
     }
 
     /**
-     * @brief checks if token is one of given types
+     * @brief Checks if token is one of given types
      * @param $token Token to check
      * @param Types to check
      */
