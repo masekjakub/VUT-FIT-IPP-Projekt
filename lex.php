@@ -155,7 +155,7 @@ class Lexer
         if (preg_match("/^(TF|LF|GF)@[\p{L}_\-$&%\*!?][\d\p{L}_\-$&%\*!?]*$/", $word)) return tokenType::T_VAR;
         if (preg_match("/^int@[-+]?[0-9]+(_[0-9]+)*$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^int@[-+]?0x[0-9a-f]+(_[0-9a-f]+)*$/i", $word)) return tokenType::T_CONST;
-        if (preg_match("/^int@[-+]?0[o]?[0-7]+(_[0-7]+)*$/i", $word)) return tokenType::T_CONST;
+        if (preg_match("/^int@[-+]?0[0-7]+(_[0-7]+)*$/i", $word)) return tokenType::T_CONST;
         if (preg_match("/^nil@nil$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^bool@(true|false)$/", $word)) return tokenType::T_CONST;
         if (preg_match("/^string@([^\\\]|\\\\\d{3})*$/", $word)) return tokenType::T_CONST;
@@ -225,7 +225,7 @@ class Lexer
     }
 
     /**
-     * @brief Counts backjumps and saves unknown labels jumps
+     * @brief Counts jumps and back jumps or saves jumps without label
      */
     private function countJumps()
     {
