@@ -1,6 +1,6 @@
 all: pack
 pack:
-	@zip xmasek19.zip parse.php lex.php syn_gen.php token.php error.php readme1.md
+	@zip xmasek19.zip parse.php lex.php syn_gen.php token.php error.php readme1.md rozsireni
 	@echo "Pack done."
 
 check:
