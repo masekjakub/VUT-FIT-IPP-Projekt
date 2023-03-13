@@ -1,7 +1,7 @@
 
-Implementační dokumentace k 1. úloze do IPP 2022/2023<br>
-Jméno a příjmení: Jakub Mašek<br>
-Login: xmasek19
+Implementační dokumentace k 1. úloze do IPP 2022/2023  
+Jméno a příjmení: Jakub Mašek  
+Login: xmasek19  
 ## Analyzátor kódu v IPPcode23
 Filtr je řízen syntaktickým analyzátorem a je rozdělen do pěti souborů: parse.php(hlavní skript), token.php(třída pro uložení tokenu) lex.php(lexikální analyzátor), syn_gen.php(syntaktický analyzátor a generátor XML), error.php(enumerační list s chybovými kódy). Je implementována možnost výpisu statistik do souboru.
 ### Hlavní skript *parse.php*
