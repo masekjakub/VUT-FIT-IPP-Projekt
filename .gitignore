@@ -5,3 +5,4 @@ options
 *.txt
 test.php
 *.sh
+.xml
