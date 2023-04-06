@@ -1,4 +1,10 @@
+in.xml
+test-parser.php
+in.in
+out.html
 tests/
+ipp-2023-tests/
+.vscode
 *.jar
 *.Identifier
 options

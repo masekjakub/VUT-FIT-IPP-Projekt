@@ -3,16 +3,20 @@ import error
 import sys
 
 class Parser:
-    def __init__(self, fileName):
-        self.fileName = self.openInput(fileName)
+    def __init__(self, sourceFile):
+        self.sourceFile = self.openFile(sourceFile)
         self.headerFound = 0
         self.currentInstruction = None
         self.currentArgument = None
         self.xmlElements = XMLElements()
 
     def run(self):
-        expatParser = self.initParser()
-        expatParser.ParseFile(self.fileName)
+        self.expatParser = self.initParser()
+        try:
+            self.expatParser.ParseFile(self.sourceFile)
+        except expat.ExpatError as e:
+            sys.stderr.write(f"ERR: XML parsing error: {e}")
+            exit(error.wrongXMLFormat)
         return self.xmlElements
 
     def initParser(self):
@@ -20,9 +24,10 @@ class Parser:
         expatParser.StartElementHandler = self.startElement
         expatParser.EndElementHandler = self.endElement
         expatParser.CharacterDataHandler = self.charData
+        expatParser.buffer_text = True
         return expatParser
 
-    def openInput(self, fileName):
+    def openFile(self, fileName):
         if fileName is not None:
             file = self.tryOpenFile(fileName)
         else:
@@ -43,22 +48,32 @@ class Parser:
             self.headerFound = self.checkProgramAttributes(attrs)
             return
         
-        elif name == "instruction":
+        if name == "instruction":
             if self.headerFound == 0:
                 sys.stderr.write(f"ERR: Program element not found.")
                 exit(error.wrongXMLFormat)
             self.currentInstruction = XMLInstruction(attrs)
+            return
 
-        elif name.startswith("arg"):
+        if name.startswith("arg"):
+            if self.currentInstruction is None:
+                sys.stderr.write(f"ERR: Instruction element not found.")
+                exit(error.wrongXMLFormat)
             argNumber = int(name.replace("arg",""))
             self.currentArgument = self.currentInstruction.newArgument(argNumber, attrs)
+            return
 
-        else:
-            sys.stderr.write(f"ERR: Wrong element name, expected only instruction or arg.")
-            exit(error.wrongXMLStructure)
+        sys.stderr.write(f"ERR: Wrong element name, expected only instruction or arg.")
+        exit(error.wrongXMLStructure)
     
     # Process end elements from XML
-    def endElement(self, name):
+    def endElement(self, name:str):
+        if name.startswith("arg") and self.currentArgument is not None:
+            if self.currentArgument.getData() is None:
+                self.currentArgument._setValue("")
+                self.currentInstruction.appendArgument(self.currentArgument)
+                self.currentArgument = None
+
         if name == "instruction":
             self.xmlElements.appendInstruction(self.currentInstruction)
             self.currentInstruction = None
@@ -67,21 +82,76 @@ class Parser:
     def charData(self, data:str):
         if data.isspace():
             return
-        
+
+        data = data.strip()
+
         if self.currentInstruction is None:
             sys.stderr.write(f"ERR: Instruction element not found.")
             exit(error.wrongXMLFormat)
 
+        if self.currentArgument is None:
+            sys.stderr.write(f"ERR: Argument element not found.")
+            exit(error.wrongXMLFormat)
+
         self.currentArgument._setValue(data)
         self.currentInstruction.appendArgument(self.currentArgument)
-        self.currentArgument = None
 
     # Checks validity of XML header
     def checkProgramAttributes(self, attrs):
-        if len(attrs) != 1 or attrs["language"] != "IPPcode23":
+        if attrs["language"] != "IPPcode23":
             sys.stderr.write(f"ERR: Wrong program element language, expected only IPPcode23.")	
             exit(error.wrongXMLStructure)
         return 1
+
+    
+class Symbol:
+    def __init__(self, value, type):
+        if type == "string":
+            value = self.replaceEscSeq(value)
+        self.value = value
+        self.type = type
+    
+    def getValue(self) -> str:
+        return self.value
+    
+    def getType(self) -> str:
+        return self.type
+
+    def setValue(self, value):
+        self.value = value
+
+    def setType(self, type):
+        self.type = type
+
+    def isDefined(self) -> bool:
+        return self.value != None
+    
+    def replaceEscSeq(self, string:str) -> str:
+        index = string.find('\\')
+        while index != -1:
+            char = string[index : index+4]
+            string = string.replace(char, chr(int(char[1:])))
+            index = string.find("\\")
+        return string
+
+    
+class Variable(Symbol):
+    def __init__(self, name, type):
+        self.name = name
+        self.type = type
+        self.value = None
+
+    def getName(self)->str:
+        return self.name
+    
+class VariableElement(Variable):
+    def __init__(self, name, frameName, type):
+        self.name = name
+        self.frameName = frameName
+        self.type = type
+
+    def getFrameName(self)->str:
+        return self.frameName
     
 class XMLArgument:
     def __init__(self, argNumber, type):
@@ -89,37 +159,54 @@ class XMLArgument:
         self.type = type
         self.value = None
     
-    def _setValue(self, value):
-        self.value = value
-
-    def getArgNumber(self):
+    def _setValue(self, value:str) -> None:
+        if self.type == "var":
+            frameName, varName = value.split("@")
+            self.value = VariableElement(varName, frameName, self.type)
+        else:
+            self.value = Symbol(value, self.type)
+            
+    def getArgNumber(self) -> int:
         return self.argNumber
     
-    def getType(self):
+    def getType(self) -> str:
         return self.type
 
-    def getValue(self):
+    def getData(self) -> VariableElement|Symbol:
         return self.value
     
 class XMLInstruction():  
     def __init__(self, attrs): 
-        self.order = int(attrs["order"])
-        self.opcode = attrs["opcode"]
+        try:
+            self.order = int(attrs["order"])
+            self.opcode = str(attrs["opcode"]).upper()
+            if int(self.order) <= 0:
+                sys.stderr.write(f"ERR: Wrong instruction element order.")
+                exit(error.wrongXMLStructure)
+        except:
+            sys.stderr.write(f"ERR: Wrong instruction element structure.")
+            exit(error.wrongXMLStructure)
+
+
         self.arguments = {}
 
-    def getOpcode(self):
+    def getOpcode(self) -> str:
         return self.opcode
     
     def getArgument(self, name) -> XMLArgument:
-        return self.arguments[name]
+        try:
+            return self.arguments[name]
+        except KeyError:
+            sys.stderr.write(f"ERR: Argument {name} not found.")
+            exit(error.wrongXMLStructure)
     
-    def getArgumentsKeys(self):
+    def getArgumentsKeys(self) -> list:
         return self.arguments.keys()
     
-    def getOrder(self):
+    def getOrder(self) -> int:
         return self.order
     
-    def newArgument(self, name, arguments):
+    def newArgument(self, name, arguments) -> XMLArgument:
         xmlArgument = XMLArgument(name, arguments["type"])
         return xmlArgument
     
