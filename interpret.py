@@ -101,7 +101,7 @@ class Interpret:
 
             instruction = program.getInstruction(self.order)
             opcode = instruction.getOpcode()
-            sys.stderr.write(f"{self.order}: {opcode} {instruction.getArgumentsKeys()}\n")
+            #sys.stderr.write(f"{self.order}: {opcode} {instruction.getArgumentsKeys()}\n")
 
             # Try to execute instruction
             try:
@@ -176,12 +176,12 @@ class Executor:
         
         variableElement = arg1.getData()
         frame = self.getFrame(variableElement.getFrameName())
-        variable = frame.getVariable(variableElement.getName()) 
+        variable = frame.getVariable(variableElement.getName())
         
         valToAssign = self.getRealValue(arg2)
         typeToAssign = self.getRealType(arg2)
 
-        variable.setValue(valToAssign)
+        variable.setValue(self.convertToType(valToAssign, typeToAssign))
         variable.setType(typeToAssign)
 
     # CREATEFRAME instruction
@@ -248,6 +248,14 @@ class Executor:
         if arg.getType() not in self.symbolList:
             sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
             exit(error.wrongType)
+        
+        if arg.getType() == "var":
+            frame = self.getFrame(arg.getData().getFrameName())
+            var = frame.getVariable(arg.getData().getName())
+            if not var.isSet():
+                sys.stderr.write(f"ERR: Variable {var.getName()} is not set.")
+                exit(error.missingValue)
+            self.dataStack.push(var)
 
         self.dataStack.push(arg)
 
@@ -360,7 +368,7 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3):
+        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3) or self.getRealType(arg2) not in ["int", "string", "bool"] or self.getRealType(arg3) not in ["int", "string", "bool"]:
             sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
             exit(error.wrongType)
 
@@ -380,7 +388,7 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3):
+        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3) or self.getRealType(arg2) not in ["int", "string", "bool"] or self.getRealType(arg3) not in ["int", "string", "bool"]:
             sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
             exit(error.wrongType)
 
@@ -504,11 +512,12 @@ class Executor:
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        try:
-            var.setValue(ord(val1[val2]))
-        except IndexError:
+
+        if val2 < 0 or val2 >= len(val1):
             sys.stderr.write(f"ERR: Invalid value in {instruction.getOpcode()} instruction.")
             exit(error.invalidString)
+
+        var.setValue(ord(val1[val2]))
         var.setType("int")
 
 
@@ -649,7 +658,17 @@ class Executor:
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(self.getRealType(arg2))
+
+        if arg2.getType() == "var":
+            frame = self.getFrame(arg2.getData().getFrameName())
+            type = frame.getVariable(arg2.getData().getName()).getType()
+        else: 
+            type = arg2.getType()
+    
+        if type is None:
+            var.setValue("")
+        else:
+            var.setValue(type)
         var.setType("string")
 
     # LABEL instruction
@@ -730,7 +749,7 @@ class Executor:
             sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
             exit(error.wrongType)
         
-        exitCode = self.convertToType(arg1.getData().getValue(), self.getRealType(arg1))
+        exitCode = self.convertToType(self.getRealValue(arg1), self.getRealType(arg1))
 
         if exitCode < 0 or exitCode > 49:
             sys.stderr.write(f"ERR: Invalid exit code in {instruction.getOpcode()} instruction.")
@@ -806,10 +825,8 @@ class Executor:
     def getRealValue(self, argument:parse.XMLArgument) -> str:
         if argument.getType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
-            value = frame.getVariable(argument.getData().getName()).getValue()
-            if value == None:
-                sys.stderr.write(f"ERR: Variable {argument.getData().getName()} is not defined.")
-                exit(error.notExistingVariable)
+            var = frame.getVariable(argument.getData().getName())
+            value = var.getValue()
             return value
         else:
             return argument.getData().getValue()
@@ -818,14 +835,16 @@ class Executor:
         if argument.getType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
             type = frame.getVariable(argument.getData().getName()).getType()
-            if type == None:
-                return ""
-            else:
-                return type
+            if type is None:
+                sys.stderr.write(f"ERR: Variable {argument.getData().getName()} is not set.")
+                exit(error.missingValue)
+            return type
         else: 
             return argument.getData().getType()
     
     def boolToInt(self, value:str) -> int:
+        if type(value) == int:
+            return value
         if value == "true":
             return 1
         else:
@@ -843,10 +862,10 @@ class Executor:
         elif type == "int":
             return int(value)
         elif type == "nil":
-            return ""
+            return value
         elif type == "string":
             return value
-        elif type == None:
+        elif type is None:
             return None
         
     def convertToWriteType(self, value, type):
@@ -858,8 +877,13 @@ class Executor:
             return ""
         elif type == "string":
             return value
-        elif type == None:
-            return None
+        elif type is None:
+            return ""
+        
+    def checkIfSet(self, argument:parse.XMLArgument):
+        if self.getRealValue(argument) == None:
+            sys.stderr.write(f"ERR: Variable {argument.getData().getName()} is not set.")
+            exit(error.missingValue)
 
 if __name__ == "__main__":
     interpret = Interpret()

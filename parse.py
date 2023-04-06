@@ -123,7 +123,7 @@ class Symbol:
     def setType(self, type):
         self.type = type
 
-    def isDefined(self) -> bool:
+    def isSet(self) -> bool:
         return self.value != None
     
     def replaceEscSeq(self, string:str) -> str:
