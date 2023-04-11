@@ -2,18 +2,24 @@ import parse
 import getopt
 import sys
 import error
-
+import copy
 
 class Interpret:
-    sourceFile = None
-    inputFile = None
-    order = 0
+
+    def __init__(self):
+        self.sourceFile = None
+        self.inputFile = None
+        self.order = 0
+        self.orderList = list()
+        self.orderIndex = 0
+        self.instructionCount = 0
 
     def run(self):
         self.processArguments()
         parser = parse.Parser(self.sourceFile)
         program = parser.run()
         self.execute(program)
+        self.inputFile.close()
 
     # Process arguments from command line
     def processArguments(self):
@@ -33,10 +39,12 @@ class Interpret:
             elif opt in ("-i", "--input"):
                 self.inputFile = arg
         
+        # Check if at least one file is given
         if self.sourceFile is None and self.inputFile is None:
             sys.stderr.write(f"ERR: At least one file must be given.")
             exit(error.wrongInputFile)
         
+        # Open input file
         if self.inputFile is not None:
             try:
                 self.inputFile = open(self.inputFile, "r")
@@ -55,21 +63,16 @@ class Interpret:
         print("")
         print("")
     
-    def setInstructionsKey(self, order):
-        self.instructionsKey = self.instructionsKeysList.index(order)
-        self.order = self.instructionsKeysList[self.instructionsKey]
-        self.instructionsKey += 1
+    def jumpAfter(self, order):
+        self.orderIndex = self.orderList.index(order)
+        self.order = self.orderList[self.orderIndex]
+        self.orderIndex += 1
 
     def getOrder(self):
         return self.order
     
     def getInstructionCount(self):
         return self.instructionCount
-
-    def labelFilter(self, items):
-        if items[1].getOpcode() != "LABEL":
-            return False
-        return True
     
     # Execute program
     def execute(self, program:parse.XMLElements):
@@ -77,39 +80,39 @@ class Interpret:
         instructions = program.getInstructions()
         if len(instructions) == 0:
             exit(error.ok)
+
         maxOrder = max(instructions)
-        self.instructionCount = 0
-        self.instructionsKeysList = sorted(list(instructions.keys()))
-        self.instructionsKey = 0
-        self.order = 0
+        self.orderList = sorted(list(instructions.keys()))
 
         # Save all labels
         for key in instructions:
             instruction = program.getInstruction(key)
             if instruction.getOpcode() == "LABEL":
                 labelName = instruction.getArgument(1).getData().getValue()
-                if executor.labels.get(labelName) is not None:
-                    sys.stderr.write(f"ERR: Label {labelName} already exists.")
-                    exit(error.semantics)
+                self.ensureLabelIsUnique(labelName, executor.labels)
                 executor.labels[labelName] = key
 
         # Execute instructions
         while self.order != maxOrder:
-            self.order = self.instructionsKeysList[self.instructionsKey]
-            self.instructionsKey +=1
+            self.order = self.orderList[self.orderIndex]
+            self.orderIndex +=1
             self.instructionCount += 1
 
             instruction = program.getInstruction(self.order)
             opcode = instruction.getOpcode()
             #sys.stderr.write(f"{self.order}: {opcode} {instruction.getArgumentsKeys()}\n")
 
+            getattr(executor, opcode)(instruction)
             # Try to execute instruction
-            try:
-                getattr(executor, opcode)(instruction)
-            except AttributeError:
-                sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
-                exit(error.wrongXMLStructure)
+            #try:
+            #except AttributeError:
+            #    sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
+            #    exit(error.wrongXMLStructure)
 
+    def ensureLabelIsUnique(self, labelName:str, labels:dict):
+        if labels.get(labelName) is not None:
+            sys.stderr.write(f"ERR: Label {labelName} already exists.")
+            exit(error.semantics)
 
 class Frame:
     GF = 1
@@ -122,6 +125,7 @@ class Frame:
 
     # Add variable to frame
     def addVariable(self, variable:parse.Variable):
+        # Check if variable already exists
         if self.variables.get(variable.getName()) is not None:
             sys.stderr.write(f"ERR: Variable {variable.getName()} already exists.")
             exit(error.semantics)
@@ -130,6 +134,7 @@ class Frame:
 
     # Get variable from frame
     def getVariable(self, variableName:str) -> parse.Variable:
+        # Check if variable exists
         if self.variables.get(variableName) is None:
             sys.stderr.write(f"ERR: Variable {variableName} does not exist.")
             exit(error.notExistingVariable)
@@ -138,12 +143,12 @@ class Frame:
 
 class Stack:
     def __init__(self):
-        self.stack = []
+        self.stack = []    
 
     def push(self, item):
         self.stack.append(item)
 
-    def pop(self):
+    def pop(self) -> parse.Symbol|parse.Variable:
         return self.stack.pop()
 
     def top(self):
@@ -170,19 +175,19 @@ class Executor:
         arg2 = instruction.getArgument(2)
         self.checkArgCount(instruction, 2)
 
-        if arg1.getType() != "var":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
         
         variableElement = arg1.getData()
         frame = self.getFrame(variableElement.getFrameName())
         variable = frame.getVariable(variableElement.getName())
         
-        valToAssign = self.getRealValue(arg2)
-        typeToAssign = self.getRealType(arg2)
+        valToAssign = self.getSymbolValue(arg2)
+        typeToAssign = self.getSymbolType(arg2)
 
         variable.setValue(self.convertToType(valToAssign, typeToAssign))
         variable.setType(typeToAssign)
+
+        #print(f"MOVE: {variableElement.getFrameName()}:{variableElement.getName()} = {typeToAssign} {self.convertToType(valToAssign, typeToAssign)}")
 
     # CREATEFRAME instruction
     def CREATEFRAME(self, instruction:parse.XMLInstruction):
@@ -192,10 +197,7 @@ class Executor:
     # PUSHFRAME instruction
     def PUSHFRAME(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 0)
-        if self.tempFrame == None:
-            sys.stderr.write(f"ERR: Temp frame is not defined.")
-            exit(error.notExistingFrame)
-
+        self.ensureFrameExists(self.tempFrame)
         self.localFrameStack.push(self.tempFrame)
         self.tempFrame = None
 
@@ -212,9 +214,7 @@ class Executor:
     def DEFVAR(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg = instruction.getArgument(1)
-        if arg.getType() != "var":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg.getXmlType() == "var", instruction, error.wrongType)
 
         varElement = instruction.getArgument(1).getData()
         frame = self.getFrame(varElement.getFrameName())
@@ -225,9 +225,7 @@ class Executor:
     def CALL(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg = instruction.getArgument(1)
-        if arg.getType() != "label":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg.getXmlType() == "label", instruction, error.wrongType)
 
         self.callStack.push(interpret.getOrder())
         self.JUMP(instruction)
@@ -239,33 +237,29 @@ class Executor:
             sys.stderr.write(f"ERR: Call stack is empty.")
             exit(error.missingValue)
 
-        interpret.setInstructionsKey(self.callStack.pop())
+        interpret.jumpAfter(self.callStack.pop())
 
     # PUSHS instruction
     def PUSHS(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg = instruction.getArgument(1)
-        if arg.getType() not in self.symbolList:
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+
+        self.myAssert(self.getSymbolType(arg) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
         
-        if arg.getType() == "var":
+        if arg.getXmlType() == "var":
             frame = self.getFrame(arg.getData().getFrameName())
             var = frame.getVariable(arg.getData().getName())
-            if not var.isSet():
-                sys.stderr.write(f"ERR: Variable {var.getName()} is not set.")
-                exit(error.missingValue)
-            self.dataStack.push(var)
+            self.dataStack.push(copy.deepcopy(var))
+            return
 
-        self.dataStack.push(arg)
+        self.dataStack.push(arg.getData())
 
     # POPS instruction
     def POPS(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg = instruction.getArgument(1)
-        if arg.getType() != "var":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+
+        self.myAssert(arg.getXmlType() == "var", instruction, error.wrongType)
 
         if self.dataStack.isEmpty():
             sys.stderr.write(f"ERR: Data stack is empty.")
@@ -275,9 +269,8 @@ class Executor:
         var = frame.getVariable(arg.getData().getName())
         data = self.dataStack.pop()
 
-        var.setValue(self.getRealValue(data))
-        var.setType(self.getRealType(data))
-
+        var.setValue(data.getValue())
+        var.setType(data.getType())
 
     # ADD instruction
     def ADD(self, instruction:parse.XMLInstruction):
@@ -286,16 +279,12 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "int" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
-        
-        try:
-            val1 = int(self.getRealValue(arg2))
-            val2 = int(self.getRealValue(arg3))
-        except ValueError:
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongXMLStructure)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
+
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -309,12 +298,12 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "int" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        val1 = int(self.getRealValue(arg2))
-        val2 = int(self.getRealValue(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
         var.setValue(val1 - val2)
@@ -327,12 +316,12 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "int" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        val1 = int(self.getRealValue(arg2))
-        val2 = int(self.getRealValue(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
         var.setValue(val1 * val2)
@@ -345,12 +334,12 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "int" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        val1 = int(self.getRealValue(arg2))
-        val2 = int(self.getRealValue(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         if val2 == 0:
             sys.stderr.write(f"ERR: Division by zero.")
@@ -368,18 +357,18 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3) or self.getRealType(arg2) not in ["int", "string", "bool"] or self.getRealType(arg3) not in ["int", "string", "bool"]:
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3), instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool"], instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(val1 < val2)
+        var.setValue(self.boolToInt(val1 < val2))
         var.setType("bool")
-
 
     # GT instruction
     def GT(self, instruction:parse.XMLInstruction):
@@ -388,16 +377,18 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != self.getRealType(arg3) or self.getRealType(arg2) not in ["int", "string", "bool"] or self.getRealType(arg3) not in ["int", "string", "bool"]:
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3), instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool"], instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(val1 > val2)
+
+        var.setValue(self.boolToInt(val1 > val2))
         var.setType("bool")
 
     # EQ instruction
@@ -407,16 +398,17 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or (self.getRealType(arg2) != self.getRealType(arg3) and self.getRealType(arg2) != "nil" and self.getRealType(arg3) != "nil"):
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3) or self.getSymbolType(arg2) == "nil" or self.getSymbolType(arg3) == "nil" , instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(val1 == val2)
+        var.setValue(self.boolToInt(val1 == val2))
         var.setType("bool")
 
     # AND instruction
@@ -426,16 +418,16 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "bool" or self.getRealType(arg3) != "bool":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(val1 and val2)
+        var.setValue(self.boolToInt(val1 and val2))
         var.setType("bool")
 
     # OR instruction
@@ -445,16 +437,16 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "bool" or self.getRealType(arg3) != "bool":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(val1 or val2)
+        var.setValue(self.boolToInt(val1 or val2))
         var.setType("bool")
 
     # NOT instruction
@@ -463,15 +455,14 @@ class Executor:
         arg1 = instruction.getArgument(1)
         arg2 = instruction.getArgument(2)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "bool":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(not val1)
+        var.setValue(self.boolToInt(not val1))
         var.setType("bool")
 
     # INT2CHAR instruction
@@ -480,14 +471,14 @@ class Executor:
         arg1 = instruction.getArgument(1)
         arg2 = instruction.getArgument(2)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
+
         try:
             var.setValue(chr(val1))
         except ValueError:
@@ -503,21 +494,19 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "string" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        string = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        index = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
 
-        if val2 < 0 or val2 >= len(val1):
-            sys.stderr.write(f"ERR: Invalid value in {instruction.getOpcode()} instruction.")
-            exit(error.invalidString)
+        self.myAssert(index >= 0 and index < len(string), instruction, error.invalidString)
 
-        var.setValue(ord(val1[val2]))
+        var.setValue(ord(string[index]))
         var.setType("int")
 
 
@@ -527,29 +516,22 @@ class Executor:
         arg1 = instruction.getArgument(1)
         arg2 = instruction.getArgument(2)
 
-        if arg1.getType() != "var" or arg2.getType() != "type":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(arg2.getXmlType() == "type", instruction, error.wrongType)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
 
         try:
             val = interpret.inputFile.readline().strip()
-        except EOFError:
-            var.setValue(val)
-            var.setType(arg2.getData().getValue())
-        
-        if arg2.getData().getValue() == "bool":
-            val = val.lower()
-        
-        try:
+            if arg2.getData().getValue() == "bool":
+                val = val.lower()
             val = self.convertToType(val, arg2.getData().getValue())
         except:
             var.setValue("nil")
             var.setType("nil")
             return
-
+            
         var.setValue(val)
         var.setType(arg2.getData().getValue())
 
@@ -557,9 +539,9 @@ class Executor:
     def WRITE(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg1 = instruction.getArgument(1)
-        string = self.getRealValue(arg1)
-        string = self.convertToWriteType(string, self.getRealType(arg1))
-        print(string, end="")
+        string = self.getSymbolValue(arg1)
+        string = self.convertToWriteType(string, self.getSymbolType(arg1))
+        print(string, end="", flush=True)
     
     # CONCAT instruction
     def CONCAT(self, instruction:parse.XMLInstruction):
@@ -568,12 +550,12 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "string" or self.getRealType(arg3) != "string":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "string", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -586,13 +568,12 @@ class Executor:
         arg1 = instruction.getArgument(1)
         arg2 = instruction.getArgument(2)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "string":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
-        var.setValue(len(self.getRealValue(arg2)))
+        var.setValue(len(self.getSymbolValue(arg2)))
         var.setType("int")
 
     # GETCHAR instruction
@@ -602,19 +583,17 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "var" or self.getRealType(arg2) != "string" or self.getRealType(arg3) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        string = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        index = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        string = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        index = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
 
-        if index < 0 or index >= len(string):
-            sys.stderr.write(f"ERR: Invalid index value in {instruction.getOpcode()} instruction.")
-            exit(error.invalidString)
+        self.myAssert(index >= 0 and index < len(string), instruction, error.invalidString)
 
         var.setValue(string[index])
         var.setType("string")
@@ -626,17 +605,15 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if self.getRealType(arg1) != "string" or self.getRealType(arg2) != "int" or self.getRealType(arg3) != "string":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(self.getSymbolType(arg1) == "string", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) == "string", instruction, error.wrongType)
         
-        stringTo = self.convertToType(self.getRealValue(arg1), self.getRealType(arg1))
-        index = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        stringFrom = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        stringTo = self.convertToType(self.getSymbolValue(arg1), self.getSymbolType(arg1))
+        index = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        stringFrom = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
 
-        if len(stringTo) <= index or len(stringFrom) == 0 or index < 0:
-            sys.stderr.write(f"ERR: Invalid index value in {instruction.getOpcode()} instruction.")
-            exit(error.invalidString)
+        self.myAssert(len(stringTo) > index and len(stringFrom) != 0 and index >= 0, instruction, error.invalidString)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -652,18 +629,16 @@ class Executor:
         arg1 = instruction.getArgument(1)
         arg2 = instruction.getArgument(2)
 
-        if arg1.getType() != "var":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
 
-        if arg2.getType() == "var":
+        if arg2.getXmlType() == "var":
             frame = self.getFrame(arg2.getData().getFrameName())
             type = frame.getVariable(arg2.getData().getName()).getType()
         else: 
-            type = arg2.getType()
+            type = arg2.getXmlType()
     
         if type is None:
             var.setValue("")
@@ -678,13 +653,13 @@ class Executor:
     # JUMP instruction
     def JUMP(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
-        labelName = instruction.getArgument(1).getData().getValue()
-        if self.labels.get(labelName) is None:
-            sys.stderr.write(f"ERR: Label {labelName} does not exist.")
-            exit(error.semantics)
+        arg = instruction.getArgument(1)
+        self.myAssert(arg.getXmlType() == "label", instruction, error.wrongType)
+        labelName = arg.getData().getValue()
+        self.checkLabelExistance(labelName)
         
         labelOrder = self.labels[labelName]
-        interpret.setInstructionsKey(labelOrder)
+        interpret.jumpAfter(labelOrder)
 
     # JUMPIFEQ instruction
     def JUMPIFEQ(self, instruction:parse.XMLInstruction):
@@ -693,25 +668,20 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "label" or (self.getRealType(arg2) != self.getRealType(arg3) and self.getRealType(arg2) != "nil" and self.getRealType(arg3) != "nil"):
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "label", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3) or self.getSymbolType(arg2) == "nil" or self.getSymbolType(arg3) == "nil" , instruction, error.wrongType)
 
-        if arg1.getData().getValue() not in self.labels:
-            sys.stderr.write(f"ERR: Label {arg1.getData().getValue()} does not exist.")
-            exit(error.semantics)
+        labelName = arg1.getData().getValue()
+        self.checkLabelExistance(labelName)
 
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
   
-        if val1 == val2:
-            labelName = arg1.getData().getValue()
-            if self.labels.get(labelName) is None:
-                sys.stderr.write(f"ERR: Label {labelName} does not exist.")
-                exit(error.semantics)
-            
+        if val1 == val2:            
             labelOrder = self.labels[labelName]
-            interpret.setInstructionsKey(labelOrder)
+            interpret.jumpAfter(labelOrder)
         
 
     # JUMPIFNEQ instruction
@@ -721,46 +691,38 @@ class Executor:
         arg2 = instruction.getArgument(2)
         arg3 = instruction.getArgument(3)
 
-        if arg1.getType() != "label" or (self.getRealType(arg2) != self.getRealType(arg3) and self.getRealType(arg2) != "nil" and self.getRealType(arg3) != "nil"):
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(arg1.getXmlType() == "label", instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
+        self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3) or self.getSymbolType(arg2) == "nil" or self.getSymbolType(arg3) == "nil" , instruction, error.wrongType)
 
-        if arg1.getData().getValue() not in self.labels:
-            sys.stderr.write(f"ERR: Label {arg1.getData().getValue()} does not exist.")
-            exit(error.semantics)
-        val1 = self.convertToType(self.getRealValue(arg2), self.getRealType(arg2))
-        val2 = self.convertToType(self.getRealValue(arg3), self.getRealType(arg3))
+        labelName = arg1.getData().getValue()
+        self.checkLabelExistance(labelName)
+
+        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
   
-        if val1 != val2:
-            labelName = arg1.getData().getValue()
-            if self.labels.get(labelName) is None:
-                sys.stderr.write(f"ERR: Label {labelName} does not exist.")
-                exit(error.semantics)
-            
+        if val1 != val2:            
             labelOrder = self.labels[labelName]
-            interpret.setInstructionsKey(labelOrder)
+            interpret.jumpAfter(labelOrder)
 
     # EXIT instruction
     def EXIT(self, instruction:parse.XMLInstruction):
         self.checkArgCount(instruction, 1)
         arg1 = instruction.getArgument(1)
 
-        if self.getRealType(arg1) != "int":
-            sys.stderr.write(f"ERR: Invalid argument type in {instruction.getOpcode()} instruction.")
-            exit(error.wrongType)
+        self.myAssert(self.getSymbolType(arg1) == "int", instruction, error.wrongType)
         
-        exitCode = self.convertToType(self.getRealValue(arg1), self.getRealType(arg1))
+        exitCode = self.convertToType(self.getSymbolValue(arg1), self.getSymbolType(arg1))
 
-        if exitCode < 0 or exitCode > 49:
-            sys.stderr.write(f"ERR: Invalid exit code in {instruction.getOpcode()} instruction.")
-            exit(error.wrongOperandValue)
+        self.myAssert(exitCode >= 0 and exitCode <= 49, instruction, error.wrongOperandValue)
 
         exit(exitCode)
 
     # DPRINT instruction
     def DPRINT(self, instruction:parse.XMLInstruction):
         arg = instruction.getArgument(1)
-        sys.stderr.write(self.getRealValue(arg))
+        sys.stderr.write(self.getSymbolValue(arg))
 
     # BREAK instruction
     def BREAK(self, instruction:parse.XMLInstruction):
@@ -822,17 +784,19 @@ class Executor:
             sys.stderr.write(f"ERR: Frame is not defined.")
             exit(error.notExistingFrame)
 
-    def getRealValue(self, argument:parse.XMLArgument) -> str:
-        if argument.getType() == "var":
+    def getSymbolValue(self, argument:parse.XMLArgument) -> str:
+        if argument.getXmlType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
             var = frame.getVariable(argument.getData().getName())
             value = var.getValue()
+            self.convertToType(value, var.getType())
             return value
         else:
-            return argument.getData().getValue()
+            value = argument.getData().getValue()
+            return self.convertToType(value, argument.getData().getType())
         
-    def getRealType(self, argument:parse.XMLArgument) -> str:
-        if argument.getType() == "var":
+    def getSymbolType(self, argument:parse.XMLArgument) -> str:
+        if argument.getXmlType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
             type = frame.getVariable(argument.getData().getName()).getType()
             if type is None:
@@ -845,7 +809,7 @@ class Executor:
     def boolToInt(self, value:str) -> int:
         if type(value) == int:
             return value
-        if value == "true":
+        if str(value).lower() == "true":
             return 1
         else:
             return 0
@@ -857,16 +821,20 @@ class Executor:
             return "false"
     
     def convertToType(self, value, type):
-        if type == "bool":
-            return self.boolToInt(value)
-        elif type == "int":
-            return int(value)
-        elif type == "nil":
-            return value
-        elif type == "string":
-            return value
-        elif type is None:
-            return None
+        try:
+            if type == "bool":
+                return self.boolToInt(value)
+            elif type == "int":
+                return int(value)
+            elif type == "nil":
+                return value
+            elif type == "string":
+                return value
+            elif type is None:
+                return None
+        except:
+            sys.stderr.write(f"ERR: Invalid value in instruction.")
+            exit(error.wrongXMLStructure)
         
     def convertToWriteType(self, value, type):
         if type == "bool":
@@ -881,9 +849,19 @@ class Executor:
             return ""
         
     def checkIfSet(self, argument:parse.XMLArgument):
-        if self.getRealValue(argument) == None:
+        if self.getSymbolValue(argument) == None:
             sys.stderr.write(f"ERR: Variable {argument.getData().getName()} is not set.")
             exit(error.missingValue)
+
+    def checkLabelExistance(self, labelName):
+        if self.labels.get(labelName) is None:
+            sys.stderr.write(f"ERR: Label {labelName} does not exist.")
+            exit(error.semantics)
+
+    def myAssert(self, value, instruction:parse.XMLInstruction, error):
+        if value == 0:
+            sys.stderr.write(f"ERR: Error in {instruction.getOpcode()} instruction with order {instruction.getOrder()}. Error code: {error}.")
+            exit(error)
 
 if __name__ == "__main__":
     interpret = Interpret()

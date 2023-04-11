@@ -4,7 +4,7 @@ import sys
 
 class Parser:
     def __init__(self, sourceFile):
-        self.sourceFile = self.openFile(sourceFile)
+        self.sourceFile = self.openSource(sourceFile)
         self.headerFound = 0
         self.currentInstruction = None
         self.currentArgument = None
@@ -17,6 +17,7 @@ class Parser:
         except expat.ExpatError as e:
             sys.stderr.write(f"ERR: XML parsing error: {e}")
             exit(error.wrongXMLFormat)
+        self.sourceFile.close()
         return self.xmlElements
 
     def initParser(self):
@@ -27,7 +28,7 @@ class Parser:
         expatParser.buffer_text = True
         return expatParser
 
-    def openFile(self, fileName):
+    def openSource(self, fileName):
         if fileName is not None:
             file = self.tryOpenFile(fileName)
         else:
@@ -97,13 +98,12 @@ class Parser:
         self.currentInstruction.appendArgument(self.currentArgument)
 
     # Checks validity of XML header
-    def checkProgramAttributes(self, attrs):
+    def checkProgramAttributes(self, attrs) -> bool:
         if attrs["language"] != "IPPcode23":
             sys.stderr.write(f"ERR: Wrong program element language, expected only IPPcode23.")	
             exit(error.wrongXMLStructure)
         return 1
 
-    
 class Symbol:
     def __init__(self, value, type):
         if type == "string":
@@ -133,8 +133,7 @@ class Symbol:
             string = string.replace(char, chr(int(char[1:])))
             index = string.find("\\")
         return string
-
-    
+ 
 class Variable(Symbol):
     def __init__(self, name, type):
         self.name = name
@@ -144,7 +143,7 @@ class Variable(Symbol):
     def getName(self)->str:
         return self.name
     
-class VariableElement(Variable):
+class VariableXmlElement(Variable):
     def __init__(self, name, frameName, type):
         self.name = name
         self.frameName = frameName
@@ -162,31 +161,30 @@ class XMLArgument:
     def _setValue(self, value:str) -> None:
         if self.type == "var":
             frameName, varName = value.split("@")
-            self.value = VariableElement(varName, frameName, self.type)
+            self.value = VariableXmlElement(varName, frameName, self.type)
         else:
             self.value = Symbol(value, self.type)
             
     def getArgNumber(self) -> int:
         return self.argNumber
     
-    def getType(self) -> str:
+    def getXmlType(self) -> str:
         return self.type
 
-    def getData(self) -> VariableElement|Symbol:
+    def getData(self) -> VariableXmlElement|Symbol:
         return self.value
     
 class XMLInstruction():  
     def __init__(self, attrs): 
         try:
-            self.order = int(attrs["order"])
             self.opcode = str(attrs["opcode"]).upper()
+            self.order = int(attrs["order"])
             if int(self.order) <= 0:
                 sys.stderr.write(f"ERR: Wrong instruction element order.")
                 exit(error.wrongXMLStructure)
         except:
             sys.stderr.write(f"ERR: Wrong instruction element structure.")
             exit(error.wrongXMLStructure)
-
 
         self.arguments = {}
 
@@ -220,12 +218,11 @@ class XMLElements:
     
     def appendInstruction(self, element:XMLInstruction):
         order = element.getOrder()
-        if self.elements.get(order) == None:
-            self.elements[element.order] = element
-            return
-        
-        sys.stderr.write(f"ERR: Duplicit order of some instructions.")	
-        exit(error.wrongXMLStructure)
+        if self.elements.get(order) != None:
+            sys.stderr.write(f"ERR: Duplicit order of some instructions.")	
+            exit(error.wrongXMLStructure)
+            
+        self.elements[element.order] = element
 
     def getInstructions(self) -> dict:
         return self.elements
