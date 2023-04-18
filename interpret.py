@@ -7,9 +7,6 @@ import copy
 class Interpret:
 
     def __init__(self):
-        '''This is the initialization function for a class with several instance variables.
-        
-        '''
         self.sourceFile = None
         self.inputFile = None
         self.order = 0
@@ -18,10 +15,6 @@ class Interpret:
         self.instructionCount = 0
 
     def run(self):
-        '''This function runs a program by processing arguments, parsing a source file, executing the resulting
-        program, and closing an input file.
-        
-        '''
         self.processArguments()
         parser = parse.Parser(self.sourceFile)
         program = parser.run()
@@ -30,9 +23,6 @@ class Interpret:
 
     # Process arguments from command line
     def processArguments(self):
-        '''This function processes command line arguments and opens an input file if provided.
-        
-        '''
         shortOpts = "hs:i:"
         longOpts = ["help", "source=", "input="]
         args = getopt.getopt(sys.argv[1:], shortOpts, longOpts)
@@ -108,9 +98,6 @@ class Interpret:
         # Execute instructions
         while self.order != maxOrder:
             self.order = self.orderList[self.orderIndex]
-            self.orderIndex +=1
-            self.instructionCount += 1
-
             instruction = program.getInstruction(self.order)
             opcode = instruction.getOpcode()
 
@@ -120,6 +107,9 @@ class Interpret:
             except AttributeError:
                 sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
                 exit(error.wrongXMLStructure)
+
+            self.orderIndex +=1
+            self.instructionCount += 1
 
     # Check if label is unique in labels dictionary
     def ensureLabelIsUnique(self, labelName:str, labels:dict):
@@ -768,9 +758,9 @@ class Executor:
             data:parse.XMLArgument = self.dataStack.pop()
             print(f"    {data.getData().getValue()}", file=sys.stderr)
             
-
-
     ## EXECUTOR HELPERS ##
+
+    # Return frame by name
     def getFrame(self, frameName:str) -> Frame:
         if frameName == "GF":
             self.ensureFrameExists(self.globalFrame)

@@ -15,8 +15,29 @@ Interpret je rozdělen do tří souborů:
 Je hlavní soubor interpretu, který obsahuje třídu `Interpret`, která obsahuje metody pro zpracování argumentů a interpretaci kódu. Dále obsahuje třídu `Frame`, která obsahuje metody pro práci s rámci a třídu `Stack`, která obsahuje metody pro práci se zásobníkem. Třída `Interpret` obsahuje také globální proměnné pro práci s rámci a datovým a zásobník volání.
 
 #### Třída Interpret
-Obsahuje metodu `run`, která zpracuje argumenty a vytváří objekt třídy Parser, který zpracuje kód a vytvoří datovou strukturu. Dále obsahuje metodu `execute`, která obsahuje smyčku, která prochází datovou strukturou a volá metody pro interpretaci jednotlivých instrukcí. Mimo to obsahuje metody pro řízení interpretace, například změna čísla instrukce, která se má vykonat. 
+Obsahuje metodu `run`, která zpracuje argumenty a vytváří objekt třídy Parser, který zpracuje kód a vytvoří datovou strukturu. Dále obsahuje metodu `execute`, která obsahuje smyčku, která prochází datovou strukturou a volá metody pro interpretaci jednotlivých instrukcí. Mimo to obsahuje metody pro řízení interpretace, například změna čísla instrukce, která se má vykonat. Smyčka pro vykonávání instrukcí:
 
+```python
+while self.order != maxOrder:
+    # Get order from sorted list of orders
+    self.order = self.orderList[self.orderIndex]
+    # Get instruction based on order
+    instruction = program.getInstruction(self.order)
+    # Get opcode of instruction
+    opcode = instruction.getOpcode()
+    
+    # Try to execute instruction
+    try:
+        getattr(executor, opcode)(instruction)
+    except AttributeError:
+        sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
+        exit(error.wrongXMLStructure)
+
+    # Increment orderIndex for next instruction
+    self.orderIndex +=1
+    # Increment instruction counter
+    self.instructionCount += 1
+```
 #### Třída Frame
 Obsahuje třídní proměnné `GF`, `LF` a `TF`, které označují typy rámců. Funkcionalitu zajišťuje metoda pro uložení symbolu do rámce `addVariable`, metoda pro získání symbolu z rámce `getVariable`.
 
