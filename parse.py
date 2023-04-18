@@ -161,7 +161,7 @@ class Variable(Symbol):
     def getName(self)->str:
         return self.name
     
-class VariableXmlElement(Variable):
+class XMLVariable(Variable):
     def __init__(self, name, frameName, type):
         self.name = name
         self.frameName = frameName
@@ -179,7 +179,7 @@ class XMLArgument:
     def _setValue(self, value:str) -> None:
         if self.type == "var":
             frameName, varName = value.split("@")
-            self.value = VariableXmlElement(varName, frameName, self.type)
+            self.value = XMLVariable(varName, frameName, self.type)
         else:
             self.value = Symbol(value, self.type)
             
@@ -189,7 +189,7 @@ class XMLArgument:
     def getXmlType(self) -> str:
         return self.type
 
-    def getData(self) -> VariableXmlElement|Symbol:
+    def getData(self) -> XMLVariable|Symbol:
         return self.value
     
 class XMLInstruction():  

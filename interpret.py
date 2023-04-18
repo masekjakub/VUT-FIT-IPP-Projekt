@@ -7,6 +7,9 @@ import copy
 class Interpret:
 
     def __init__(self):
+        '''This is the initialization function for a class with several instance variables.
+        
+        '''
         self.sourceFile = None
         self.inputFile = None
         self.order = 0
@@ -15,6 +18,10 @@ class Interpret:
         self.instructionCount = 0
 
     def run(self):
+        '''This function runs a program by processing arguments, parsing a source file, executing the resulting
+        program, and closing an input file.
+        
+        '''
         self.processArguments()
         parser = parse.Parser(self.sourceFile)
         program = parser.run()
@@ -23,6 +30,9 @@ class Interpret:
 
     # Process arguments from command line
     def processArguments(self):
+        '''This function processes command line arguments and opens an input file if provided.
+        
+        '''
         shortOpts = "hs:i:"
         longOpts = ["help", "source=", "input="]
         args = getopt.getopt(sys.argv[1:], shortOpts, longOpts)
@@ -57,6 +67,8 @@ class Interpret:
 
     def printHelp(self):
         print("IPP Interpret")
+        print("Interpretation of XML representation of IPPcode23.")
+        print("Author: Jakub Mašek (xmasek19)")
         print("Usage: interpret.py [options]")
         print("Options:")
         print("  -h, --help\t\tPrint this help.")
@@ -361,8 +373,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool"], instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool"], instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -381,8 +393,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) in ["int", "string", "bool"], instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool"], instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -402,8 +414,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg3) in ["int", "string", "bool", "nil"], instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg2) == self.getSymbolType(arg3) or self.getSymbolType(arg2) == "nil" or self.getSymbolType(arg3) == "nil" , instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -421,8 +433,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -440,8 +452,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -457,7 +469,7 @@ class Executor:
         self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg2) == "bool", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val1 = self.getSymbolValue(arg2)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -473,7 +485,7 @@ class Executor:
         self.myAssert(arg1.getXmlType() == "var", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
+        val1 = self.getSymbolValue(arg2)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -497,8 +509,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        string = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        index = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        string = self.getSymbolValue(arg2)
+        index = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -553,8 +565,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "string", instruction, error.wrongType)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -586,8 +598,8 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "string", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "int", instruction, error.wrongType)
 
-        string = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        index = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        string = self.getSymbolValue(arg2)
+        index = self.getSymbolValue(arg3)
 
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
@@ -609,9 +621,9 @@ class Executor:
         self.myAssert(self.getSymbolType(arg2) == "int", instruction, error.wrongType)
         self.myAssert(self.getSymbolType(arg3) == "string", instruction, error.wrongType)
         
-        stringTo = self.convertToType(self.getSymbolValue(arg1), self.getSymbolType(arg1))
-        index = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        stringFrom = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        stringTo = self.getSymbolValue(arg1)
+        index = self.getSymbolValue(arg2)
+        stringFrom = self.getSymbolValue(arg3)
 
         self.myAssert(len(stringTo) > index and len(stringFrom) != 0 and index >= 0, instruction, error.invalidString)
 
@@ -676,8 +688,8 @@ class Executor:
         labelName = arg1.getData().getValue()
         self.checkLabelExistance(labelName)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
   
         if val1 == val2:            
             labelOrder = self.labels[labelName]
@@ -699,8 +711,8 @@ class Executor:
         labelName = arg1.getData().getValue()
         self.checkLabelExistance(labelName)
 
-        val1 = self.convertToType(self.getSymbolValue(arg2), self.getSymbolType(arg2))
-        val2 = self.convertToType(self.getSymbolValue(arg3), self.getSymbolType(arg3))
+        val1 = self.getSymbolValue(arg2)
+        val2 = self.getSymbolValue(arg3)
   
         if val1 != val2:            
             labelOrder = self.labels[labelName]
@@ -713,7 +725,7 @@ class Executor:
 
         self.myAssert(self.getSymbolType(arg1) == "int", instruction, error.wrongType)
         
-        exitCode = self.convertToType(self.getSymbolValue(arg1), self.getSymbolType(arg1))
+        exitCode = self.getSymbolValue(arg1)
 
         self.myAssert(exitCode >= 0 and exitCode <= 49, instruction, error.wrongOperandValue)
 
