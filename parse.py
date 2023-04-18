@@ -10,6 +10,7 @@ class Parser:
         self.currentArgument = None
         self.xmlElements = XMLElements()
 
+    # Parse XML file and return list of instructions
     def run(self):
         self.expatParser = self.initParser()
         try:
@@ -20,6 +21,7 @@ class Parser:
         self.sourceFile.close()
         return self.xmlElements
 
+    # Initialize XML parser 
     def initParser(self):
         expatParser = expat.ParserCreate()
         expatParser.StartElementHandler = self.startElement
@@ -28,6 +30,7 @@ class Parser:
         expatParser.buffer_text = True
         return expatParser
 
+    # Open source file or use stdin
     def openSource(self, fileName):
         if fileName is not None:
             file = self.tryOpenFile(fileName)
@@ -35,6 +38,7 @@ class Parser:
             file = sys.stdin.buffer
         return file
 
+    # Try to open source file and exits if it fails
     def tryOpenFile(self, fileName):
         try:
             file = open(fileName, "rb")
@@ -45,10 +49,12 @@ class Parser:
 
     # Process start elements from XML
     def startElement(self, name:str, attrs):
+        # Check if program element is first
         if name == "program":
             self.headerFound = self.checkProgramAttributes(attrs)
             return
         
+        # Handle instruction element
         if name == "instruction":
             if self.headerFound == 0:
                 sys.stderr.write(f"ERR: Program element not found.")
@@ -56,6 +62,7 @@ class Parser:
             self.currentInstruction = XMLInstruction(attrs)
             return
 
+        # Handle argument element
         if name.startswith("arg"):
             if self.currentInstruction is None:
                 sys.stderr.write(f"ERR: Instruction element not found.")
@@ -64,17 +71,20 @@ class Parser:
             self.currentArgument = self.currentInstruction.newArgument(argNumber, attrs)
             return
 
+        # Handle wrong element
         sys.stderr.write(f"ERR: Wrong element name, expected only instruction or arg.")
         exit(error.wrongXMLStructure)
     
     # Process end elements from XML
     def endElement(self, name:str):
+        # Handle instruction element
         if name.startswith("arg") and self.currentArgument is not None:
             if self.currentArgument.getData() is None:
                 self.currentArgument._setValue("")
                 self.currentInstruction.appendArgument(self.currentArgument)
                 self.currentArgument = None
 
+        # Handle instruction element
         if name == "instruction":
             self.xmlElements.appendInstruction(self.currentInstruction)
             self.currentInstruction = None
@@ -108,6 +118,13 @@ class Symbol:
     def __init__(self, value, type):
         if type == "string":
             value = self.replaceEscSeq(value)
+        # Convert bool to int (internal bool representation)
+        if type == "bool" and value is not None:
+            if value.lower() == "true":
+                value = 1
+            elif value.lower() == "false":
+                value = 0
+
         self.value = value
         self.type = type
     
@@ -130,6 +147,7 @@ class Symbol:
         index = string.find('\\')
         while index != -1:
             char = string[index : index+4]
+            # Replace escape sequence with character
             string = string.replace(char, chr(int(char[1:])))
             index = string.find("\\")
         return string
@@ -205,7 +223,11 @@ class XMLInstruction():
         return self.order
     
     def newArgument(self, name, arguments) -> XMLArgument:
-        xmlArgument = XMLArgument(name, arguments["type"])
+        try:
+            xmlArgument = XMLArgument(name, arguments["type"])
+        except:
+            sys.stderr.write(f"ERR: Wrong argument element structure.")
+            exit(error.wrongXMLStructure)
         return xmlArgument
     
     def appendArgument(self, argument:XMLArgument):

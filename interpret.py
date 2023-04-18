@@ -57,12 +57,13 @@ class Interpret:
 
     def printHelp(self):
         print("IPP Interpret")
-        print("")
-        print("")
-        print("")
-        print("")
-        print("")
-    
+        print("Usage: interpret.py [options]")
+        print("Options:")
+        print("  -h, --help\t\tPrint this help.")
+        print("  -s, --source=file\tRead XML from file.")
+        print("  -i, --input=file\tRead input from file.")
+
+    # Jump to next instruction after given order
     def jumpAfter(self, order):
         self.orderIndex = self.orderList.index(order)
         self.order = self.orderList[self.orderIndex]
@@ -100,15 +101,15 @@ class Interpret:
 
             instruction = program.getInstruction(self.order)
             opcode = instruction.getOpcode()
-            #sys.stderr.write(f"{self.order}: {opcode} {instruction.getArgumentsKeys()}\n")
 
-            getattr(executor, opcode)(instruction)
             # Try to execute instruction
-            #try:
-            #except AttributeError:
-            #    sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
-            #    exit(error.wrongXMLStructure)
+            try:
+                getattr(executor, opcode)(instruction)
+            except AttributeError:
+                sys.stderr.write(f"ERR: Error while executing opcode {opcode}.")
+                exit(error.wrongXMLStructure)
 
+    # Check if label is unique in labels dictionary
     def ensureLabelIsUnique(self, labelName:str, labels:dict):
         if labels.get(labelName) is not None:
             sys.stderr.write(f"ERR: Label {labelName} already exists.")
@@ -186,8 +187,6 @@ class Executor:
 
         variable.setValue(self.convertToType(valToAssign, typeToAssign))
         variable.setType(typeToAssign)
-
-        #print(f"MOVE: {variableElement.getFrameName()}:{variableElement.getName()} = {typeToAssign} {self.convertToType(valToAssign, typeToAssign)}")
 
     # CREATEFRAME instruction
     def CREATEFRAME(self, instruction:parse.XMLInstruction):
@@ -593,6 +592,7 @@ class Executor:
         frame = self.getFrame(arg1.getData().getFrameName())
         var = frame.getVariable(arg1.getData().getName())
 
+        # Is index in range of string
         self.myAssert(index >= 0 and index < len(string), instruction, error.invalidString)
 
         var.setValue(string[index])
@@ -726,31 +726,35 @@ class Executor:
 
     # BREAK instruction
     def BREAK(self, instruction:parse.XMLInstruction):
-        print("Current instruction order: ", interpret.getOrder())
-        print("Instruction count: ", interpret.getInstructionCount())
+        print("Current instruction order: ", interpret.getOrder(), file=sys.stderr)
+        print("Instruction count: ", interpret.getInstructionCount(), file=sys.stderr)
 
-        print("Global frame: ")
+        # Global frame
+        print("Global frame: ", file=sys.stderr)
         for key in self.getFrame("GF").variables.keys():
-            print(f"    {key} = {self.getFrame('GF').variables[key].getValue()}")
+            print(f"    {key} = {self.getFrame('GF').variables[key].getValue()}", file=sys.stderr)
 
+        # Temporary frame
         if self.tempFrame is not None:
-            print("Temporary frame: ")
+            print("Temporary frame: ", file=sys.stderr)
             for key in self.getFrame("TF").variables.keys():
-                print(f"    {key} = {self.getFrame('TF').variables[key].getValue()}")
+                print(f"    {key} = {self.getFrame('TF').variables[key].getValue()}", file=sys.stderr)
         else:
-            print("Temporary frame: None")
+            print("Temporary frame: None", file=sys.stderr)
 
+        # Local frame
         if self.localFrameStack.isEmpty() == 0:
-            print("Local frame: ")
+            print("Local frame: ", file=sys.stderr)
             for key in self.getFrame("LF").variables.keys():
-                print(f"    {key} = {self.getFrame('LF').variables[key].getValue()}")
+                print(f"    {key} = {self.getFrame('LF').variables[key].getValue()}", file=sys.stderr)
         else:
-            print("Local frame: None")
+            print("Local frame: None", file=sys.stderr)
         
-        print("Data stack: ") 
+        # Data stack
+        print("Data stack: ", file=sys.stderr) 
         while self.dataStack.isEmpty() == 0:
             data:parse.XMLArgument = self.dataStack.pop()
-            print(f"    {data.getData().getValue()}")
+            print(f"    {data.getData().getValue()}", file=sys.stderr)
             
 
 
@@ -784,6 +788,7 @@ class Executor:
             sys.stderr.write(f"ERR: Frame is not defined.")
             exit(error.notExistingFrame)
 
+    # Get value of symbol (int, string, bool, nil)
     def getSymbolValue(self, argument:parse.XMLArgument) -> str:
         if argument.getXmlType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
@@ -795,6 +800,7 @@ class Executor:
             value = argument.getData().getValue()
             return self.convertToType(value, argument.getData().getType())
         
+    # Get type of symbol (int, string, bool, nil)
     def getSymbolType(self, argument:parse.XMLArgument) -> str:
         if argument.getXmlType() == "var":
             frame = self.getFrame(argument.getData().getFrameName())
@@ -835,7 +841,8 @@ class Executor:
         except:
             sys.stderr.write(f"ERR: Invalid value in instruction.")
             exit(error.wrongXMLStructure)
-        
+    
+    # Convert to writeable value
     def convertToWriteType(self, value, type):
         if type == "bool":
             return self.intToBool(value)
@@ -848,20 +855,24 @@ class Executor:
         elif type is None:
             return ""
         
+    # Check if variable is set
     def checkIfSet(self, argument:parse.XMLArgument):
         if self.getSymbolValue(argument) == None:
             sys.stderr.write(f"ERR: Variable {argument.getData().getName()} is not set.")
             exit(error.missingValue)
 
+    # Check if label exists
     def checkLabelExistance(self, labelName):
         if self.labels.get(labelName) is None:
             sys.stderr.write(f"ERR: Label {labelName} does not exist.")
             exit(error.semantics)
 
-    def myAssert(self, value, instruction:parse.XMLInstruction, error):
+    # If input is not 0, exit with error code
+    def myAssert(self, value, instruction:parse.XMLInstruction, errorCode):
         if value == 0:
-            sys.stderr.write(f"ERR: Error in {instruction.getOpcode()} instruction with order {instruction.getOrder()}. Error code: {error}.")
-            exit(error)
+            sys.stderr.write(f"ERR: Error in {instruction.getOpcode()} instruction with order {instruction.getOrder()}. Error code: {errorCode}.")
+            exit(errorCode)
+
 
 if __name__ == "__main__":
     interpret = Interpret()

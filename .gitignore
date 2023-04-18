@@ -11,4 +11,5 @@ options
 *.txt
 test.php
 *.sh
-.xml
+*.xml
+*.png
